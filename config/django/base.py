@@ -18,7 +18,7 @@ LOCAL_APPS = [
     'raba_gym.common.apps.CommonConfig',
     'raba_gym.users.apps.UsersConfig',
     'raba_gym.authentication.apps.AuthenticationConfig',
-    'raba_gym.gym.GymConfig'
+    'raba_gym.gym.apps.GymConfig'
 ]
 
 THIRD_PARTY_APPS = [
