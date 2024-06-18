@@ -5,7 +5,7 @@ from rest_framework import serializers
 
 from django.core.validators import MinLengthValidator
 from .validators import number_validator, special_char_validator, letter_validator
-from raba_gym.users.models import BaseUser , Profile
+from raba_gym.users.models import User , Profile
 from raba_gym.api.mixins import ApiAuthMixin
 from raba_gym.users.selectors import get_profile
 from raba_gym.users.services import register 
@@ -16,65 +16,86 @@ from drf_spectacular.utils import extend_schema
 
 class ProfileApi(ApiAuthMixin, APIView):
 
-    class OutPutSerializer(serializers.ModelSerializer):
+    class OutputSerializer(serializers.ModelSerializer):
         class Meta:
             model = Profile 
-            fields = ("bio", "posts_count", "subscriber_count", "subscription_count")
+            fields = ("bio",)
 
-    @extend_schema(responses=OutPutSerializer)
+    @extend_schema(responses=OutputSerializer)
     def get(self, request):
         query = get_profile(user=request.user)
-        return Response(self.OutPutSerializer(query, context={"request":request}).data)
+        return Response(self.OutputSerializer(query, context={"request":request}).data)
 
 
 class RegisterApi(APIView):
 
-
     class InputRegisterSerializer(serializers.Serializer):
-        email = serializers.EmailField(max_length=255)
+        phone = serializers.CharField(
+            max_length=11,
+            required=True,
+            error_messages={
+                "blank": "موبایل خود را وارد نمایید",
+                "required": "موبایل خود را وارد نمایید",
+            },
+        )
         bio = serializers.CharField(max_length=1000, required=False)
-        password = serializers.CharField(
-                validators=[
-                        number_validator,
-                        letter_validator,
-                        special_char_validator,
-                        MinLengthValidator(limit_value=10)
-                    ]
-                )
-        confirm_password = serializers.CharField(max_length=255)
         
-        def validate_email(self, email):
-            if BaseUser.objects.filter(email=email).exists():
-                raise serializers.ValidationError("email Already Taken")
-            return email
-
-        def validate(self, data):
-            if not data.get("password") or not data.get("confirm_password"):
-                raise serializers.ValidationError("Please fill password and confirm password")
+        def validate_phone(self, phone):
+            if User.objects.filter(phone=phone).exists():
+                raise serializers.ValidationError("کاربری با این موبایل وجود دارد", code="authorization")
             
-            if data.get("password") != data.get("confirm_password"):
-                raise serializers.ValidationError("confirm password is not equal to password")
-            return data
+            return phone
+        
+        def validate(self, attrs):
+            phone = attrs.get("phone")
+            if not phone.isdigit():
+                return super().validate(attrs)
+            return attrs
+    # class InputRegisterSerializer(serializers.Serializer):
+    #     phone = serializers.EmailField(max_length=255)
+    #     bio = serializers.CharField(max_length=1000, required=False)
+    #     password = serializers.CharField(
+    #             validators=[
+    #                     number_validator,
+    #                     letter_validator,
+    #                     special_char_validator,
+    #                     MinLengthValidator(limit_value=10)
+    #                 ]
+    #             )
+    #     confirm_password = serializers.CharField(max_length=255)
+        
+    #     def validate_email(self, email):
+    #         if User.objects.filter(email=email).exists():
+    #             raise serializers.ValidationError("email Already Taken")
+    #         return email
+
+    #     def validate(self, data):
+    #         if not data.get("password") or not data.get("confirm_password"):
+    #             raise serializers.ValidationError("Please fill password and confirm password")
+            
+    #         if data.get("password") != data.get("confirm_password"):
+    #             raise serializers.ValidationError("confirm password is not equal to password")
+    #         return data
 
 
-    class OutPutRegisterSerializer(serializers.ModelSerializer):
+    # class OutPutRegisterSerializer(serializers.ModelSerializer):
 
-        token = serializers.SerializerMethodField("get_token")
+    #     token = serializers.SerializerMethodField("get_token")
 
-        class Meta:
-            model = BaseUser 
-            fields = ("email", "token", "created_at", "updated_at")
+    #     class Meta:
+    #         model = User 
+    #         fields = ("email", "token", "created_at", "updated_at")
 
-        def get_token(self, user):
-            data = dict()
-            token_class = RefreshToken
+    #     def get_token(self, user):
+    #         data = dict()
+    #         token_class = RefreshToken
 
-            refresh = token_class.for_user(user)
+    #         refresh = token_class.for_user(user)
 
-            data["refresh"] = str(refresh)
-            data["access"] = str(refresh.access_token)
+    #         data["refresh"] = str(refresh)
+    #         data["access"] = str(refresh.access_token)
 
-            return data
+    #         return data
 
 
     @extend_schema(request=InputRegisterSerializer, responses=OutPutRegisterSerializer)
@@ -83,8 +104,7 @@ class RegisterApi(APIView):
         serializer.is_valid(raise_exception=True)
         try:
             user = register(
-                    email=serializer.validated_data.get("email"),
-                    password=serializer.validated_data.get("password"),
+                    phone=serializer.validated_data.get("phone"),
                     bio=serializer.validated_data.get("bio"),
                     )
         except Exception as ex:

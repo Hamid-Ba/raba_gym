@@ -2,73 +2,58 @@ from django.db import models
 from raba_gym.common.models import BaseModel
 
 from django.contrib.auth.models import AbstractBaseUser
-from django.contrib.auth.models import BaseUserManager as BUM
+from django.contrib.auth.models import BaseUserManager
 from django.contrib.auth.models import PermissionsMixin
 
+from .validators import phone_validator
 
 
-class BaseUserManager(BUM):
-    def create_user(self, email, is_active=True, is_admin=False, password=None):
-        if not email:
-            raise ValueError("Users must have an email address")
 
-        user = self.model(email=self.normalize_email(email.lower()), is_active=is_active, is_admin=is_admin)
+class UserManager(BaseUserManager):
+    """User Manager"""
 
-        if password is not None:
-            user.set_password(password)
-        else:
-            user.set_unusable_password()
-
-        user.full_clean()
-        user.save(using=self._db)
+    def create_user(self, phone, password=None, **extra_fields):
+        """Custome Create Normal User"""
+        if not phone:
+            raise ValueError
+        user = self.model(phone=phone, **extra_fields)
+        user.set_password(password)
+        user.save()
 
         return user
 
-    def create_superuser(self, email, password=None):
-        user = self.create_user(
-            email=email,
-            is_active=True,
-            is_admin=True,
-            password=password,
-        )
-
-        user.is_superuser = True
-        user.save(using=self._db)
+    def create_superuser(self, phone, password=None, **extra_fields):
+        """Create Super User"""
+        if not phone:
+            raise ValueError
+        user = self.model(phone=phone, is_staff=True, is_superuser=True, **extra_fields)
+        user.set_password(password)
+        user.save()
 
         return user
 
 
-class BaseUser(BaseModel, AbstractBaseUser, PermissionsMixin):
+class User(BaseModel, AbstractBaseUser, PermissionsMixin):
 
-    email = models.EmailField(verbose_name = "email address",
-                              unique=True)
-
+    phone = models.CharField(max_length=11, unique=True, validators=[phone_validator])
+    full_name = models.CharField(max_length=255, blank=True)
     is_active = models.BooleanField(default=True)
-    is_admin = models.BooleanField(default=False)
+    is_staff = models.BooleanField(default=False)
 
-    objects = BaseUserManager()
+    objects = UserManager()
 
-    USERNAME_FIELD = "email"
+    USERNAME_FIELD = "phone"
 
     def __str__(self):
-        return self.email
-
-    def is_staff(self):
-        return self.is_admin
+        if self.full_name:
+            return self.full_name
+        return self.phone
 
 
 class Profile(models.Model):
-    user = models.OneToOneField(BaseUser, on_delete=models.CASCADE)
-    posts_count = models.PositiveIntegerField(default=0)
-    subscriber_count = models.PositiveIntegerField(default=0)
-    subscription_count = models.PositiveIntegerField(default=0)
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
     bio = models.CharField(max_length=1000, null=True, blank=True)
 
     def __str__(self):
         return f"{self.user} >> {self.bio}"
-
-
-
-
-
-
+    
