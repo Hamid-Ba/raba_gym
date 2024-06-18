@@ -13,11 +13,10 @@ def create_user(*, phone:str, password:str) -> User:
 
 
 @transaction.atomic
-def register(*, bio:str|None, phone:str, password:str) -> User:
+def register(*, phone:str, bio:str|None) -> User:
 
     otp = str(randint(100000, 999999))
     user = create_user(phone=phone, password=otp)
-    user.full_name = otp
     create_profile(user=user, bio=bio)
 
     return user
